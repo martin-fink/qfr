@@ -78,7 +78,10 @@ if(NOT TARGET ${PROJECT_NAME})
     parsers/qasm3_parser/InstVisitor.cpp
     QuantumComputation.cpp)
 
-  find_package(ICU 72 COMPONENTS uc i18n io REQUIRED)
+  find_package(
+    ICU 72
+    COMPONENTS uc i18n io
+    REQUIRED)
   include_directories(SYSTEM ${ICU_INCLUDE_DIRS})
   target_link_libraries(${PROJECT_NAME} PUBLIC ${ICU_LIBRARIES})
 
