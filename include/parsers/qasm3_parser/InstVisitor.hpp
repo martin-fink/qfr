@@ -4,10 +4,8 @@
 #include <iostream>
 #include <map>
 #include <sstream>
-// NOLINTBEGIN
 #include <unicode/unistr.h>
 #include <unicode/ustream.h>
-// NOLINTEND
 #include "Environment.hpp"
 
 #include <utility>
