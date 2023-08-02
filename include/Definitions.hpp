@@ -59,7 +59,7 @@ static constexpr fp PI_4 = static_cast<fp>(
 class Operation;
 
 // supported file formats
-enum class Format { Real, OpenQASM, GRCS, TFC, QC, Tensor };
+enum class Format { Real, OpenQASM, OpenQASM3, GRCS, TFC, QC, Tensor };
 
 using DAG = std::vector<std::deque<std::unique_ptr<Operation>*>>;
 using DAGIterator = std::deque<std::unique_ptr<Operation>*>::iterator;
