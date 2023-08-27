@@ -40,6 +40,14 @@ public:
     }
   }
 
+  void setControls(const Controls& c) override {
+    for (auto& op : ops) {
+      auto existingControls = op->getControls();
+      existingControls.insert(c.begin(), c.end());
+      op->setControls(existingControls);
+    }
+  }
+
   [[nodiscard]] bool isCompoundOperation() const override { return true; }
 
   [[nodiscard]] bool isNonUnitaryOperation() const override {
