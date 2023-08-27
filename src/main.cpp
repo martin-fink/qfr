@@ -84,9 +84,10 @@ int main() {
                         "gate mycx c, t {\n"
                         "  ctrl @ x c, t;\n"
                         "}\n"
-                        "inv @ mycx q[0], p[0];\n"
-                        "mycx q[0], p[0];\n"
-                        "ctrl(2) @ x q[CTRL_INDEX], q[CTRL_INDEX + 1], p;\n"
+                        //                        "inv @ mycx q[0], p[0];\n"
+                        "ctrl @ mycx q[0], q[1], p[0];\n"
+                        "ctrl @ gphase(pi) q[0];\n"
+                        //                        "ctrl(2) @ mycx q[CTRL_INDEX], q[CTRL_INDEX + 1], q[CTRL_INDEX + 1], p;\n"
                         "";
 
   std::cout << s << '\n';

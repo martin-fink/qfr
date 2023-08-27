@@ -690,10 +690,12 @@ public:
             param = -param;
           }
         }
-        return std::make_unique<qc::StandardOperation>(
+        auto op = std::make_unique<qc::StandardOperation>(
             qc->getNqubits(),
-            qc::Controls{controlBits.begin(), controlBits.end()}, targetBits,
+            qc::Controls{}, targetBits,
             standardGate->info.type, params);
+        op->setControls(qc::Controls{controlBits.begin(), controlBits.end()});
+        return op;
       }
       if (auto* compoundGate = dynamic_cast<CompoundGate*>(gate.get())) {
         auto nestedEnv = std::make_shared<Environment>();
@@ -749,7 +751,7 @@ public:
           std::reverse(op->getOps().begin(), op->getOps().end());
         }
 
-        return legalizeControls(std::move(op));
+        return op;
       }
 
       error("Unknown gate type.", gateCallStatement->debugInfo);
@@ -811,65 +813,6 @@ public:
     auto op = std::make_unique<qc::NonUnitaryOperation>(qc->getNqubits(),
                                                         qubits, bits);
     qc->emplace_back(std::move(op));
-  }
-
-  template <typename To, typename From, typename Deleter>
-  std::unique_ptr<To, Deleter>
-  dynamic_unique_cast(std::unique_ptr<From, Deleter>&& p) {
-    if (To* cast = dynamic_cast<To*>(p.get())) {
-      std::unique_ptr<To, Deleter> result(cast, std::move(p.get_deleter()));
-      p.release();
-      return result;
-    }
-    return std::unique_ptr<To, Deleter>(nullptr);
-  }
-
-  void pushDownControls(qc::CompoundOperation* op) {
-    std::vector<std::unique_ptr<qc::Operation>> newOps{};
-    newOps.reserve(op->getOps().size());
-    for (auto& nestedOp : op->getOps()) {
-      nestedOp->getControls().insert(op->getControls().begin(),
-                                     op->getControls().end());
-      newOps.push_back(legalizeControls(std::move(nestedOp)));
-    }
-
-    op->getOps() = std::move(newOps);
-
-    // now that all controls have been pushed down, the compound operation has
-    // no more controls
-    op->setControls(qc::Controls{});
-  }
-
-  std::unique_ptr<qc::Operation>
-  legalizeControls(std::unique_ptr<qc::Operation> op) {
-    if (op->getControls().empty()) {
-      return op;
-    }
-
-    if (auto compoundOp =
-            dynamic_unique_cast<qc::CompoundOperation>(std::move(op))) {
-      pushDownControls(compoundOp.get());
-      return compoundOp;
-    }
-    if (auto standardOp =
-            dynamic_unique_cast<qc::StandardOperation>(std::move(op))) {
-      if (standardOp->getType() == qc::GPhase) {
-        // a controlled `gphase a` is replaced with a single-qubit U(0, 0, a)
-        // gate
-        auto angle = standardOp->getParameter()[0];
-        auto newOp = std::make_unique<qc::CompoundOperation>(qc->getNqubits());
-        for (auto control : standardOp->getControls()) {
-          auto newStdOp = std::make_unique<qc::StandardOperation>(
-              qc->getNqubits(), qc::Controls{}, qc::Targets{control.qubit},
-              qc::U3, std::vector<qc::fp>{0, 0, angle});
-          newOp->emplace_back(newStdOp);
-        }
-        return newOp;
-      }
-      return standardOp;
-    }
-
-    return op;
   }
 
   void visitBarrierStatement(
