@@ -17,7 +17,7 @@ class OpenQasm3Parser : public InstVisitor {
 
   std::vector<std::unique_ptr<qc::Operation>> ops{};
 
-  std::map<icu::UnicodeString, std::shared_ptr<Gate>> gates = {
+  std::map<std::string, std::shared_ptr<Gate>> gates = {
       {"gphase",
        std::make_shared<StandardGate>(StandardGate({0, 0, 1, qc::GPhase}))},
       {"U", std::make_shared<StandardGate>(StandardGate({0, 1, 3, qc::U3}))},
@@ -93,7 +93,7 @@ class OpenQasm3Parser : public InstVisitor {
       //            qc::XXplusYY}))},
   };
 
-  void error(const icu::UnicodeString& message,
+  void error(const std::string& message,
              const std::shared_ptr<DebugInfo>& debugInfo) {
     std::cerr << debugInfo->toString();
 
@@ -108,7 +108,7 @@ class OpenQasm3Parser : public InstVisitor {
   }
 
   void initializeBuiltins() {
-    auto addConstantDeclaration = [this](const icu::UnicodeString& identifier,
+    auto addConstantDeclaration = [this](const std::string& identifier,
                                          Declaration::Type type, uint8_t width,
                                          std::shared_ptr<Expression> expr) {
       auto decl = Declaration{identifier, std::move(expr), type, width, true};
@@ -125,20 +125,18 @@ class OpenQasm3Parser : public InstVisitor {
   bool translateGateOperand(const std::shared_ptr<GateOperand>& gateOperand,
                             std::vector<qc::Qubit>& qubits,
                             const qc::QuantumRegisterMap& qregs,
-                            std::shared_ptr<DebugInfo> debugInfo) {
+                            const std::shared_ptr<DebugInfo>& debugInfo) {
     return translateGateOperand(gateOperand->identifier,
                                 gateOperand->expression, qubits, qregs,
                                 debugInfo);
   }
 
-  bool translateGateOperand(const icu::UnicodeString& gateIdentifier,
+  bool translateGateOperand(const std::string& gateIdentifier,
                             const std::shared_ptr<Expression>& indexExpr,
                             std::vector<qc::Qubit>& qubits,
                             const qc::QuantumRegisterMap& qregs,
                             const std::shared_ptr<DebugInfo>& debugInfo) {
-    std::string identifier{};
-    gateIdentifier.toUTF8String(identifier);
-    auto qubitIter = qregs.find(identifier);
+    auto qubitIter = qregs.find(gateIdentifier);
     if (qubitIter == qregs.end()) {
       error("Usage of unknown quantum register.", debugInfo);
       return false;
@@ -181,13 +179,11 @@ class OpenQasm3Parser : public InstVisitor {
     return true;
   }
 
-  bool translateBitOperand(const icu::UnicodeString& bitIdentifier,
+  bool translateBitOperand(const std::string& bitIdentifier,
                            const std::shared_ptr<Expression>& indexExpr,
                            std::vector<qc::Bit>& bits,
                            const std::shared_ptr<DebugInfo>& debugInfo) {
-    std::string identifier{};
-    bitIdentifier.toUTF8String(identifier);
-    auto iter = qc->getCregs().find(identifier);
+    auto iter = qc->getCregs().find(bitIdentifier);
     if (iter == qc->getCregs().end()) {
       error("Usage of unknown classical register.", debugInfo);
       return false;
@@ -260,10 +256,9 @@ public:
       std::shared_ptr<DeclarationStatement> declarationStatement) override {
     auto identifier = declarationStatement->identifier;
     if (declarations->find(identifier) != declarations->end()) {
-      icu::UnicodeString message{"Identifier "};
-      message.append(identifier);
-      message.append(" already declared.");
-      error(message, declarationStatement->debugInfo);
+      // TODO: show the location of the previous declaration
+      error("Identifier '" + identifier + "' already declared.",
+            declarationStatement->debugInfo);
       return;
     }
 
@@ -303,7 +298,6 @@ public:
       OpenQasm3Parser* parser;
       qc::QuantumComputation* qc;
       std::string identifier;
-      icu::UnicodeString unicodeIdentifier;
       uint8_t designator;
       std::shared_ptr<Environment> env;
       std::shared_ptr<DeclarationStatement> declarationStatement;
@@ -313,22 +307,19 @@ public:
         if (declarationStatement->expression != nullptr) {
           expr = declarationStatement->expression->expression;
         }
-        env->emplace(unicodeIdentifier,
-                     Declaration{unicodeIdentifier, expr, type, designator,
-                                 declarationStatement->isConst});
+        env->emplace(identifier, Declaration{identifier, expr, type, designator,
+                                             declarationStatement->isConst});
       }
 
     public:
       explicit TyVisitor(
           OpenQasm3Parser* parser, qc::QuantumComputation* qc,
-          const icu::UnicodeString& identifier, uint8_t designator,
+          std::string identifier, uint8_t designator,
           std::shared_ptr<Environment> env,
           std::shared_ptr<DeclarationStatement> declarationStatement)
-          : parser(parser), qc(qc), unicodeIdentifier(identifier),
+          : parser(parser), qc(qc), identifier(std::move(identifier)),
             designator(designator), env(std::move(env)),
-            declarationStatement(std::move(declarationStatement)) {
-        identifier.toUTF8String(this->identifier);
-      }
+            declarationStatement(std::move(declarationStatement)) {}
 
       void visitBitType(BitType* /*type*/) override {
         qc->addClassicalRegister(designator, identifier);
@@ -409,18 +400,14 @@ public:
     auto identifier = assignmentStatement->identifier->identifier;
     auto declaration = declarations->find(identifier);
     if (declaration == declarations->end()) {
-      icu::UnicodeString message{"Usage of unknown identifier '"};
-      message.append(identifier);
-      message.append("'.");
-      error(message, assignmentStatement->debugInfo);
+      error("Usage of unknown identifier '" + identifier + "'.",
+            assignmentStatement->debugInfo);
       return;
     }
 
     if (declaration->second.isConst) {
-      icu::UnicodeString message{"Assignment to constant identifier '"};
-      message.append(identifier);
-      message.append("'.");
-      error(message, assignmentStatement->debugInfo);
+      error("Assignment to constant identifier '" + identifier + "'.",
+            assignmentStatement->debugInfo);
       return;
     }
 
@@ -461,10 +448,9 @@ public:
   visitGateStatement(std::shared_ptr<GateDeclaration> gateStatement) override {
     auto identifier = gateStatement->identifier;
     if (gates.find(identifier) != gates.end()) {
-      icu::UnicodeString message{"Gate "};
-      message.append(identifier);
-      message.append(" already declared.");
-      error(message, gateStatement->debugInfo);
+      // TODO: print location of previous declaration
+      error("Gate '" + identifier + "' already declared.",
+            gateStatement->debugInfo);
       return;
     }
 
@@ -472,35 +458,24 @@ public:
     auto qubits = gateStatement->qubits;
 
     // first we check that all parameters and qubits are unique
-    std::set<icu::UnicodeString> parameterSet{};
+    std::vector<std::string> parameterIdentifiers{};
     for (const auto& parameter : parameters->identifiers) {
-      if (parameterSet.find(parameter->identifier) != parameterSet.end()) {
-        icu::UnicodeString message{"Parameter "};
-        message.append(parameter->identifier);
-        message.append(" already declared.");
-        error(message, gateStatement->debugInfo);
+      if (std::find(parameterIdentifiers.begin(), parameterIdentifiers.end(),
+                    parameter->identifier) != parameterIdentifiers.end()) {
+        error("Parameter '" + parameter->identifier + "' already declared.",
+              gateStatement->debugInfo);
         return;
       }
-      parameterSet.emplace(parameter->identifier);
-    }
-    std::set<icu::UnicodeString> qubitSet{};
-    for (const auto& qubit : qubits->identifiers) {
-      if (qubitSet.find(qubit->identifier) != qubitSet.end()) {
-        icu::UnicodeString message{"Qubit "};
-        message.append(qubit->identifier);
-        message.append(" already declared.");
-        error(message, gateStatement->debugInfo);
-        return;
-      }
-      qubitSet.emplace(qubit->identifier);
-    }
-
-    std::vector<icu::UnicodeString> parameterIdentifiers{};
-    for (const auto& parameter : parameters->identifiers) {
       parameterIdentifiers.emplace_back(parameter->identifier);
     }
-    std::vector<icu::UnicodeString> qubitIdentifiers{};
+    std::vector<std::string> qubitIdentifiers{};
     for (const auto& qubit : qubits->identifiers) {
+      if (std::find(qubitIdentifiers.begin(), qubitIdentifiers.end(),
+                    qubit->identifier) != qubitIdentifiers.end()) {
+        error("Qubit '" + qubit->identifier + "' already declared.",
+              gateStatement->debugInfo);
+        return;
+      }
       qubitIdentifiers.emplace_back(qubit->identifier);
     }
 
@@ -519,10 +494,8 @@ public:
   void visitGateCallStatement(
       std::shared_ptr<GateCallStatement> gateCallStatement) override {
     if (gates.find(gateCallStatement->identifier) == gates.end()) {
-      icu::UnicodeString message{"Gate "};
-      message.append(gateCallStatement->identifier);
-      message.append(" not declared.");
-      error(message, gateCallStatement->debugInfo);
+      error("Gate '" + gateCallStatement->identifier + "' not declared.",
+            gateCallStatement->debugInfo);
       return;
     }
 
@@ -539,7 +512,7 @@ public:
 
   std::unique_ptr<qc::Operation>
   evaluateGateCall(const std::shared_ptr<GateCallStatement>& gateCallStatement,
-                   const icu::UnicodeString& identifier,
+                   const std::string& identifier,
                    const std::vector<std::shared_ptr<Expression>>& parameters,
                    std::vector<std::shared_ptr<GateOperand>> targets,
                    const std::shared_ptr<Environment>& env,
@@ -547,23 +520,17 @@ public:
                    bool invertOperation = false) {
     auto iter = gates.find(identifier);
     if (iter == gates.end()) {
-      icu::UnicodeString message{"Usage of unknown gate '"};
-      message.append(identifier);
-      message.append("'.");
-      error(message, gateCallStatement->debugInfo);
+      error("Usage of unknown gate '" + identifier + "'.",
+            gateCallStatement->debugInfo);
       return nullptr;
     }
     auto gate = iter->second;
 
     if (gate->getNParameters() != parameters.size()) {
-      icu::UnicodeString message{"Gate '"};
-      message.append(identifier);
-      message.append("' takes ");
-      message.append(std::to_string(gate->getNParameters()).c_str());
-      message.append(" parameters, but ");
-      message.append(std::to_string(parameters.size()).c_str());
-      message.append(" were supplied.");
-      error(message, gateCallStatement->debugInfo);
+      error("Gate '" + identifier + "' takes " +
+                std::to_string(gate->getNParameters()) + " parameters, but " +
+                std::to_string(parameters.size()) + " were supplied.",
+            gateCallStatement->debugInfo);
       return nullptr;
     }
 
@@ -573,14 +540,10 @@ public:
     // need to handle those
     size_t nControls{gate->getNControls()};
     if (targets.size() < nControls) {
-      icu::UnicodeString message{"Gate '"};
-      message.append(identifier);
-      message.append("' takes ");
-      message.append(std::to_string(nControls).c_str());
-      message.append(" controls, but only ");
-      message.append(std::to_string(targets.size()).c_str());
-      message.append(" were supplied.");
-      error(message, gateCallStatement->debugInfo);
+      error("Gate '" + identifier + "' takes " + std::to_string(nControls) +
+                " controls, but only " + std::to_string(targets.size()) +
+                " were supplied.",
+            gateCallStatement->debugInfo);
       return nullptr;
     }
 
@@ -611,14 +574,10 @@ public:
           n = static_cast<size_t>(result->getInt());
         }
         if (targets.size() < n + nControls) {
-          icu::UnicodeString message{"Gate '"};
-          message.append(identifier);
-          message.append("' takes ");
-          message.append(std::to_string(n + nControls).c_str());
-          message.append(" controls, but only ");
-          message.append(std::to_string(targets.size()).c_str());
-          message.append(" were supplied.");
-          error(message, gateCallStatement->debugInfo);
+          error("Gate '" + identifier + "' takes " +
+                    std::to_string(n + nControls) + " controls, but only " +
+                    std::to_string(targets.size()) + " were supplied.",
+                gateCallStatement->debugInfo);
           return nullptr;
         }
 
@@ -642,14 +601,10 @@ public:
                   targets.begin() + static_cast<int64_t>(nControls));
 
     if (gate->getNTargets() != targets.size()) {
-      icu::UnicodeString message{"Gate '"};
-      message.append(identifier);
-      message.append("' takes ");
-      message.append(std::to_string(gate->getNTargets()).c_str());
-      message.append(" targets, but ");
-      message.append(std::to_string(targets.size()).c_str());
-      message.append(" were supplied.");
-      error(message, gateCallStatement->debugInfo);
+      error("Gate '" + identifier + "' takes " +
+                std::to_string(gate->getNTargets()) + " targets, but " +
+                std::to_string(targets.size()) + " were supplied.",
+            gateCallStatement->debugInfo);
       return nullptr;
     }
 
@@ -762,9 +717,7 @@ public:
         for (const auto& qubitIdentifier : compoundGate->targetNames) {
           auto qubit = std::pair{targetBits[index], 1};
 
-          std::string qubitIdentifierStr;
-          qubitIdentifier.toUTF8String(qubitIdentifierStr);
-          nestedQubits.emplace(qubitIdentifierStr, qubit);
+          nestedQubits.emplace(qubitIdentifier, qubit);
           index++;
         }
 

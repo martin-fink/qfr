@@ -3,8 +3,6 @@
 #include "QuantumComputation.hpp"
 
 #include <iostream>
-#include <unicode/unistr.h>
-#include <unicode/ustream.h>
 
 namespace qasm3 {
 
@@ -173,13 +171,12 @@ public:
   size_t endCol = 0;
   int64_t val{};
   qc::fp valReal{};
-  icu::UnicodeString str;
+  std::string str;
 
   Token(size_t l, size_t c) : line(l), col(c), endLine(l), endCol(c) {}
   Token(Kind k, size_t l, size_t c)
       : kind(k), line(l), col(c), endLine(l), endCol(c) {}
 
-private:
   static std::string kindToString(Token::Kind kind) {
     switch (kind) {
     case Kind::None:
@@ -433,8 +430,7 @@ private:
     }
   }
 
-public:
-  [[nodiscard]] icu::UnicodeString toString() const {
+  [[nodiscard]] std::string toString() const {
     std::stringstream ss;
     ss << kindToString(kind);
     switch (kind) {
@@ -453,7 +449,7 @@ public:
     default:
       break;
     }
-    return ss.str().c_str();
+    return ss.str();
   }
 
   friend std::ostream& operator<<(std::ostream& os, const Kind& k) {

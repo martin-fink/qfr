@@ -43,13 +43,13 @@ public:
 class GateDeclaration : public Statement,
                         public std::enable_shared_from_this<GateDeclaration> {
 public:
-  icu::UnicodeString identifier;
+  std::string identifier;
   std::shared_ptr<IdentifierList> parameters;
   std::shared_ptr<IdentifierList> qubits;
   std::vector<std::shared_ptr<GateCallStatement>> statements;
 
   explicit GateDeclaration(
-      std::shared_ptr<DebugInfo> debugInfo, icu::UnicodeString identifier,
+      std::shared_ptr<DebugInfo> debugInfo, std::string identifier,
       std::shared_ptr<IdentifierList> parameters,
       std::shared_ptr<IdentifierList> qubits,
       std::vector<std::shared_ptr<GateCallStatement>> statements)
@@ -244,9 +244,9 @@ class IdentifierExpression
     : public Expression,
       public std::enable_shared_from_this<IdentifierExpression> {
 public:
-  icu::UnicodeString identifier;
+  std::string identifier;
 
-  explicit IdentifierExpression(icu::UnicodeString identifier)
+  explicit IdentifierExpression(std::string identifier)
       : identifier(std::move(identifier)) {}
 
   std::any accept(ExpressionVisitor* visitor) override {
@@ -273,10 +273,10 @@ public:
 // TODO: physical qubits are currently not supported
 class GateOperand {
 public:
-  icu::UnicodeString identifier;
+  std::string identifier;
   std::shared_ptr<Expression> expression;
 
-  GateOperand(icu::UnicodeString identifier,
+  GateOperand(std::string identifier,
               std::shared_ptr<Expression> expression)
       : identifier(std::move(identifier)), expression(std::move(expression)) {}
 };
@@ -287,12 +287,12 @@ class DeclarationStatement
 public:
   bool isConst;
   std::unique_ptr<Type> type;
-  icu::UnicodeString identifier;
+  std::string identifier;
   std::shared_ptr<DeclarationExpression> expression;
 
   DeclarationStatement(std::shared_ptr<DebugInfo> debugInfo, bool isConst,
                        std::unique_ptr<Type> type,
-                       icu::UnicodeString identifier,
+                       std::string identifier,
                        std::shared_ptr<DeclarationExpression> expression)
       : Statement(std::move(debugInfo)), isConst(isConst),
         type(std::move(type)), identifier(std::move(identifier)),
@@ -340,13 +340,13 @@ class GateCallStatement
     : public Statement,
       public std::enable_shared_from_this<GateCallStatement> {
 public:
-  icu::UnicodeString identifier;
+  std::string identifier;
   std::vector<std::shared_ptr<GateModifier>> modifiers;
   std::vector<std::shared_ptr<Expression>> arguments;
   std::vector<std::shared_ptr<GateOperand>> operands;
 
   GateCallStatement(std::shared_ptr<DebugInfo> debugInfo,
-                    icu::UnicodeString identifier,
+                    std::string identifier,
                     std::vector<std::shared_ptr<GateModifier>> modifiers,
                     std::vector<std::shared_ptr<Expression>> arguments,
                     std::vector<std::shared_ptr<GateOperand>> operands)

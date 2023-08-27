@@ -1,12 +1,12 @@
+#include <string>
 #include <map>
-#include <unicode/ustring.h>
 
 namespace qasm3 {
 class Expression;
 
 struct Declaration {
 public:
-  icu::UnicodeString identifier;
+  std::string identifier;
   std::shared_ptr<Expression> expression;
   enum Type {
     Qubit,
@@ -20,5 +20,5 @@ public:
   bool isConst;
 };
 
-using Environment = std::map<icu::UnicodeString, Declaration>;
+using Environment = std::map<std::string, Declaration>;
 } // namespace qasm3

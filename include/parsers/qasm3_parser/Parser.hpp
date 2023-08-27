@@ -19,9 +19,6 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
-#include <unicode/uchar.h>
-#include <unicode/uniset.h>
-#include <unicode/utf8.h>
 #include <utility>
 #include <vector>
 
@@ -64,7 +61,7 @@ private:
   std::shared_ptr<DebugInfo> includeDebugInfo{nullptr};
 
   [[noreturn]] static void error(const Token& token,
-                                 const icu::UnicodeString& msg) {
+                                 const std::string& msg) {
     std::cerr << "Error at line " << token.line << ", column " << token.col
               << ": " << msg << '\n';
     throw std::runtime_error("Parser error");
@@ -86,11 +83,7 @@ private:
 
   Token expect(const Token::Kind& expected) {
     if (current().kind != expected) {
-      std::stringstream err;
-      err << expected << "', got '" << current() << "'";
-      auto ustr = icu::UnicodeString{"Expected '"} + err.str().c_str();
-
-      error(current(), ustr);
+      error(current(), "Expected '" + Token::kindToString(expected) + "', got '" + Token::kindToString(current().kind) + "'");
     }
 
     Token const token = current();

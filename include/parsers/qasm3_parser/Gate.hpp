@@ -33,13 +33,13 @@ public:
 
 struct CompoundGate : public Gate {
 public:
-  std::vector<icu::UnicodeString> parameterNames;
-  std::vector<icu::UnicodeString> targetNames;
+  std::vector<std::string> parameterNames;
+  std::vector<std::string> targetNames;
   std::vector<std::shared_ptr<GateCallStatement>> body;
   std::unique_ptr<Environment> globalEnv;
 
-  explicit CompoundGate(std::vector<icu::UnicodeString> parameterNames,
-                        std::vector<icu::UnicodeString> targetNames,
+  explicit CompoundGate(std::vector<std::string> parameterNames,
+                        std::vector<std::string> targetNames,
                         std::vector<std::shared_ptr<GateCallStatement>> body,
                         std::unique_ptr<Environment> globalEnv)
       : parameterNames(std::move(parameterNames)),

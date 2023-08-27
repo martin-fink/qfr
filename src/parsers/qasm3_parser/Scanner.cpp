@@ -1,38 +1,10 @@
 #include "parsers/qasm3_parser/Scanner.hpp"
 
-#include "parsers/qasm3_parser/StdGates.hpp"
-
-#include <unicode/unistr.h>
-#include <unicode/utf8.h>
-#include <unicode/utypes.h>
-
 namespace qasm3 {
-UChar32 Scanner::readUtf8Codepoint(std::istream& in) {
+char Scanner::readUtf8Codepoint(std::istream& in) {
   char c = 0;
   in.get(c);
-  auto trailBytes = U8_COUNT_TRAIL_BYTES(c);
-
-  std::vector<char> buffer;
-  buffer.emplace_back(c);
-
-  for (int i = 0; i < trailBytes; ++i) {
-    in.get(c);
-    buffer.emplace_back(c);
-  }
-
-#pragma clang diagnostic push // we get a warning if we have an initializer and
-                              // if we don't so just suppress this warning
-#pragma ide diagnostic ignored "UnusedValue"
-  UChar32 codepoint = 0;
-#pragma clang diagnostic pop
-  int32_t offset = 0;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wsign-compare"
-  U8_NEXT(buffer, offset, buffer.size(),
-          codepoint); // NOLINT(bugprone-assignment-in-if-condition)
-#pragma clang diagnostic pop
-
-  return codepoint;
+  return c;
 }
 
 void Scanner::nextCh() {
@@ -48,7 +20,7 @@ void Scanner::nextCh() {
   }
 }
 
-UChar32 Scanner::peek() const {
+char Scanner::peek() const {
   if (!is.eof()) {
     return static_cast<char>(is.peek());
   }
@@ -62,16 +34,16 @@ std::optional<Token> Scanner::consumeWhitespaceAndComments() {
   if (ch == '/' && peek() == '/') {
     Token t(line, col);
     // consume until newline
-    icu::UnicodeString str;
+    std::stringstream content;
     while (ch != '\n' && ch != 0) {
-      str.append(ch);
+      content << ch;
       nextCh();
     }
     if (ch == '\n') {
       nextCh();
     }
 
-    t.str = str;
+    t.str = content.str();
     t.kind = Token::Kind::Comment;
     t.endCol = col;
     t.endLine = line;
@@ -97,13 +69,13 @@ std::optional<Token> Scanner::consumeWhitespaceAndComments() {
 
 Token Scanner::consumeName() {
   Token t(line, col);
-  icu::UnicodeString str;
+  std::stringstream name;
   while (isFirstIdChar(ch) || isNum(ch)) {
-    str.append(ch);
+    name << ch;
     nextCh();
   }
 
-  t.str = str;
+  t.str = name.str();
   if (keywords.find(t.str) != keywords.end()) {
     t.kind = keywords[t.str];
   } else {
@@ -117,7 +89,7 @@ Token Scanner::consumeName() {
 
 uint64_t Scanner::consumeIntegerLiteral(uint8_t base) {
   uint64_t val = 0;
-  auto isValidChar = [base, this](UChar32 c) {
+  auto isValidChar = [base](char c) {
     if (base == 2) {
       return c == '0' || c == '1';
     }
@@ -247,13 +219,13 @@ Token Scanner::consumeString() {
   const auto delim = ch;
   nextCh();
 
-  icu::UnicodeString str;
+  std::stringstream content;
   while (ch != delim) {
-    str.append(ch);
+    content << ch;
     nextCh();
   }
 
-  t.str = str;
+  t.str = content.str();
 
   expect(delim);
 
@@ -264,17 +236,6 @@ Token Scanner::consumeString() {
 }
 
 Scanner::Scanner(std::istream& in) : is(in) {
-  UErrorCode status = U_ZERO_ERROR;
-  spaceSet = icu::UnicodeSet(R"([:White_Space:])", status);
-  assert(U_SUCCESS(status) && "Invalid pattern.");
-  firstIdCharSet =
-      icu::UnicodeSet("[[:Lu:][:Ll:][:Lt:][:Lm:][:Lo:][:Nl:]a-zA-Z_]", status);
-  assert(U_SUCCESS(status) && "Invalid pattern.");
-  numSet = icu::UnicodeSet(R"([:number:])", status);
-  assert(U_SUCCESS(status) && "Invalid pattern.");
-  hexSet = icu::UnicodeSet(R"([[:number:]a-fA-F])", status);
-  assert(U_SUCCESS(status) && "Invalid pattern.");
-
   keywords["OPENQASM"] = Token::Kind::OpenQasm;
   keywords["include"] = Token::Kind::Include;
   keywords["defcalgrammar"] = Token::Kind::DefCalGrammar;
@@ -581,8 +542,7 @@ Token Scanner::next() {
     t.kind = Token::Kind::At;
     break;
   default: {
-    auto ustr = icu::UnicodeString{"Unknown character '"} + ch + "'";
-    error(ustr);
+    error("Unknown character '" + std::to_string(ch) + "'");
     t.kind = Token::Kind::None;
     nextCh();
     break;

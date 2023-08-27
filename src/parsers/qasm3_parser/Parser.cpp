@@ -82,8 +82,7 @@ std::shared_ptr<Statement> Parser::parseStatement() {
 
     auto tBegin = current();
 
-    std::string comment;
-    current().str.toUTF8String(comment);
+    std::string comment = current().str;
     scan();
 
     auto parsePermutation = [&comment]() -> qc::Permutation {
@@ -159,40 +158,32 @@ std::shared_ptr<Statement> Parser::parseStatement() {
     return parseBarrierStatement();
   }
 
-  icu::UnicodeString message{"Expected statement, got "};
-  message.append(current().toString());
-  message.append(".");
-  error(current(), message);
+  error(current(), "Expected statement, got " + current().toString() + ".");
 }
 
 void Parser::parseInclude() {
   auto tBegin = expect(Token::Kind::Include);
   auto filename = expect(Token::Kind::StringLiteral).str;
   auto tEnd = expect(Token::Kind::Semicolon);
-  std::string str;
-  filename.toUTF8String(str);
 
   // we need to make sure to report errors across includes
   includeDebugInfo = makeDebugInfo(tBegin, tEnd);
 
   // Here we add a new scanner to our stack and then continue with that one
 
-  auto in = std::make_unique<std::ifstream>(str, std::ifstream::in);
+  auto in = std::make_unique<std::ifstream>(filename, std::ifstream::in);
   std::unique_ptr<std::istream> is{nullptr};
   if (in->fail()) {
     if (filename == "stdgates.inc") {
       is = std::make_unique<std::istringstream>(STDGATES);
     } else {
-      icu::UnicodeString message{"Failed to open file "};
-      message.append(filename);
-      message.append(".");
-      error(current(), message);
+      error(current(), "Failed to open file " + filename + ".");
     }
   } else {
     is = std::move(in);
   }
 
-  scanner.emplace(std::move(is), str);
+  scanner.emplace(std::move(is), filename);
   scan();
 }
 
@@ -333,7 +324,7 @@ std::shared_ptr<GateCallStatement> Parser::parseGateCallStatement() {
   }
 
   bool operandsOptional = false;
-  icu::UnicodeString identifier;
+  std::string identifier;
   if (current().kind == Token::Kind::Gphase) {
     scan();
     identifier = "gphase";
@@ -341,9 +332,6 @@ std::shared_ptr<GateCallStatement> Parser::parseGateCallStatement() {
   } else {
     identifier = expect(Token::Kind::Identifier).str;
   }
-
-  std::string debug;
-  identifier.toUTF8String(debug);
 
   std::vector<std::shared_ptr<Expression>> arguments{};
   if (current().kind == Token::Kind::LParen) {
@@ -570,10 +558,7 @@ std::shared_ptr<Expression> Parser::exponentiation() {
     return std::make_shared<UnaryExpression>(UnaryExpression{op, x});
   }
   default: {
-    icu::UnicodeString message{"Expected expression, got "};
-    message.append(current().toString());
-    message.append(".");
-    error(current(), message);
+    error(current(), "Expected expression, got " + current().toString() + ".");
   }
   }
 }

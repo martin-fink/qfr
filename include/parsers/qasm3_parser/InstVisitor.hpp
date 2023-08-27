@@ -1,13 +1,11 @@
 #pragma once
 
+#include "Environment.hpp"
+
 #include <any>
 #include <iostream>
 #include <map>
 #include <sstream>
-#include <unicode/unistr.h>
-#include <unicode/ustream.h>
-#include "Environment.hpp"
-
 #include <utility>
 
 namespace qasm3 {
@@ -17,11 +15,7 @@ private:
   std::string msg;
 
 public:
-  explicit TypeCheckException(const icu::UnicodeString& msg) {
-    std::stringstream ss;
-    ss << "Type check error: " << msg;
-    this->msg = ss.str();
-  }
+  explicit TypeCheckException(std::string msg) : msg(msg) {}
 
   [[nodiscard]] const char* what() const noexcept override {
     return msg.c_str();

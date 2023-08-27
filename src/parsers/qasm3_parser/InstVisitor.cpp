@@ -210,18 +210,14 @@ std::any ConstExpressionPropagation::visitIdentifierExpression(
   auto identifier = identifierExpression->identifier;
   auto value = environment->find(identifier);
   if (value == environment->end()) {
-    icu::UnicodeString message{"Usage of undeclared identifier '"};
-    message.append(identifier);
-    message.append("'.");
-    throw TypeCheckException(message);
+    throw TypeCheckException("Usage of undeclared identifier '" + identifier +
+                             "'.");
   }
 
   auto declaration = value->second;
   if (!declaration.isConst) {
-    icu::UnicodeString message{"Usage of non-const identifier '"};
-    message.append(identifier);
-    message.append("'.");
-    throw TypeCheckException(message);
+    throw TypeCheckException("Usage of non-const identifier '" + identifier +
+                             "'.");
   }
 
   auto result = std::any_cast<std::shared_ptr<Constant>>(
