@@ -82,6 +82,27 @@ public:
 
   void dumpOpenQASM(std::ostream& of, const RegisterNames& qreg,
                     const RegisterNames& creg) const override;
+
+  void setControls(const Controls& c) override {
+    // A controlled `gphase a` operation is replaced with a `U(0, 0, a)` gate
+    // on the controlled qubit.
+    if (!c.empty() && type == OpType::GPhase) {
+      type = parseU1(parameter[0]);
+      targets.emplace_back(c.begin()->qubit);
+
+      // TODO: in case the control is negative, the `gphase a` gate should be replaced with the following gate set:
+      // `X` `U(0, 0, a), `X`
+      // Unsure on how to do this here.
+
+      // We need to remove the control we just promoted to a target from the
+      // controls.
+      auto remainingControls = c;
+      remainingControls.erase(remainingControls.begin());
+      Operation::setControls(remainingControls);
+    } else {
+      Operation::setControls(c);
+    }
+  }
 };
 
 } // namespace qc
