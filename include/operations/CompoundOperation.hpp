@@ -198,5 +198,12 @@ public:
     }
     return usedQubits;
   }
+
+  void invert() override {
+    for (auto &op : ops) {
+      op->invert();
+    }
+    std::reverse(ops.begin(), ops.end());
+  }
 };
 } // namespace qc

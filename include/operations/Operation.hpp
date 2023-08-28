@@ -154,5 +154,11 @@ public:
 
   virtual void dumpOpenQASM(std::ostream& of, const RegisterNames& qreg,
                             const RegisterNames& creg) const = 0;
+
+  virtual void invert() {
+    for (auto& param : parameter) {
+      param = -param;
+    }
+  }
 };
 } // namespace qc

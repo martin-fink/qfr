@@ -1908,3 +1908,28 @@ TEST_F(QFRFunctionality, dumpAndImportTeleportation) {
   ASSERT_EQ(qcImported.size(), 1);
   EXPECT_EQ(qcImported.at(0)->getType(), OpType::Teleportation);
 }
+
+TEST_F(QFRFunctionality, invertStandardOperation) {
+  auto op =
+      StandardOperation{1, Targets{0}, OpType::RZ, std::vector<fp>{0, 0, PI}};
+
+  op.invert();
+
+  auto expected = std::vector<fp>{0, 0, -PI};
+  ASSERT_EQ(op.getParameter(), expected);
+}
+
+TEST_F(QFRFunctionality, invertCompoundOperation) {
+  auto op = CompoundOperation{2};
+  op.emplace_back<StandardOperation>(2, Targets{0}, OpType::RZ,
+                                     std::vector<fp>{0, 0, PI});
+  op.emplace_back<StandardOperation>(2, Targets{1}, OpType::RZ,
+                                     std::vector<fp>{0, 0, -PI_2});
+
+  op.invert();
+
+  auto expected0 = std::vector<fp>{0, 0, PI_2};
+  auto expected1 = std::vector<fp>{0, 0, -PI};
+  ASSERT_EQ(op.getOps()[0]->getParameter(), expected0);
+  ASSERT_EQ(op.getOps()[1]->getParameter(), expected1);
+}
