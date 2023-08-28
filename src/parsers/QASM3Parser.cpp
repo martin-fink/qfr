@@ -516,8 +516,7 @@ public:
                    const std::vector<std::shared_ptr<Expression>>& parameters,
                    std::vector<std::shared_ptr<GateOperand>> targets,
                    const std::shared_ptr<Environment>& env,
-                   qc::QuantumRegisterMap& qregs,
-                   bool invertOperation = false) {
+                   qc::QuantumRegisterMap& qregs) {
     auto iter = gates.find(identifier);
     if (iter == gates.end()) {
       error("Usage of unknown gate '" + identifier + "'.",
@@ -551,6 +550,7 @@ public:
       controls.emplace_back(targets[i], true);
     }
 
+    bool invertOperation = false;
     for (const auto& modifier : gateCallStatement->modifiers) {
       if (auto* ctrlModifier = dynamic_cast<CtrlGateModifier*>(modifier.get());
           ctrlModifier != nullptr) {
@@ -679,21 +679,18 @@ public:
     }
 
     auto applyGateOperation =
-        [this, &gate, &evaluatedParameters, &env, &gateCallStatement,
-         &invertOperation](qc::Targets targetBits,
-                           std::vector<qc::Control> controlBits)
+        [this, &gate, evaluatedParameters, &env, &gateCallStatement,
+         invertOperation](qc::Targets targetBits,
+                          std::vector<qc::Control> controlBits)
         -> std::unique_ptr<qc::Operation> {
       if (auto* standardGate = dynamic_cast<StandardGate*>(gate.get())) {
-        std::vector<qc::fp> params = evaluatedParameters;
-        if (invertOperation) {
-          for (auto& param : params) {
-            param = -param;
-          }
-        }
         auto op = std::make_unique<qc::StandardOperation>(
-            qc->getNqubits(),
-            qc::Controls{}, targetBits,
-            standardGate->info.type, params);
+            qc->getNqubits(), qc::Controls{}, targetBits,
+            standardGate->info.type, evaluatedParameters);
+        if (invertOperation) {
+          op->invert();
+        }
+        return op;
         op->setControls(qc::Controls{controlBits.begin(), controlBits.end()});
         return op;
       }
@@ -740,7 +737,7 @@ public:
 
           auto nestedOp = evaluateGateCall(
               nestedGate, nestedGate->identifier, nestedGate->arguments,
-              nestedGate->operands, nestedEnv, nestedQubits, invertOperation);
+              nestedGate->operands, nestedEnv, nestedQubits);
           if (nestedOp == nullptr) {
             return nullptr;
           }
@@ -748,7 +745,7 @@ public:
         }
         op->setControls(qc::Controls{controlBits.begin(), controlBits.end()});
         if (invertOperation) {
-          std::reverse(op->getOps().begin(), op->getOps().end());
+          op->invert();
         }
 
         return op;
